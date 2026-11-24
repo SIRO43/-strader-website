@@ -47,8 +47,9 @@ export default {
       auth.searchParams.set("state",state);
       auth.searchParams.set("code_challenge",challenge);
       auth.searchParams.set("code_challenge_method","S256");
-      return new Response(null,{status:302,headers:{
-        "Location":auth.toString(),
+      const destination = auth.toString();
+      return new Response(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta http-equiv="refresh" content="0;url=${destination}"><meta name="viewport" content="width=device-width"><title>Connecting to Deriv</title></head><body style="margin:0;background:#07111f;color:#f5f8fc;font:16px Arial;display:grid;min-height:100vh;place-items:center"><main style="padding:30px;text-align:center"><h1 style="color:#00d084">STRADER</h1><p>Redirecting you to Deriv's secure sign-in page…</p><p><a style="color:#00d084" href="${destination}">Continue to Deriv</a></p></main><script>window.location.replace(${JSON.stringify(destination)});</script></body></html>`,{status:200,headers:{
+        "Content-Type":"text/html; charset=utf-8",
         "Set-Cookie":`strader_oauth=${payload}; Path=/; Max-Age=600; HttpOnly; Secure; SameSite=Lax`,
         "Cache-Control":"no-store"
       }});
