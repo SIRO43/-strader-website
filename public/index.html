@@ -78,7 +78,12 @@ document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click
  document.querySelectorAll('.tab').forEach(item=>item.classList.toggle('active',item===button));
  document.querySelectorAll('.content').forEach(item=>item.classList.toggle('active',item.id===button.dataset.tab));
 }));
-fetch('/api/session').then(r=>r.json()).then(session=>{\n const status=document.querySelector('.grid .panel:nth-child(3) .metric');\n const note=document.querySelector('.grid .panel:nth-child(3) .muted:last-child');\n if(session.authenticated){status.textContent='Authorized';status.style.color='#00d084';note.textContent='Deriv account connected';}\n}).catch(()=>{});\ndocument.getElementById('plan').addEventListener('click',()=>{
+fetch('/api/session').then(r=>r.json()).then(session=>{
+ const status=document.querySelector('.grid .panel:nth-child(3) .metric');
+ const note=document.querySelector('.grid .panel:nth-child(3) .muted:last-child');
+ if(session.authenticated){status.textContent='Authorized';status.style.color='#00d084';note.textContent='Deriv account connected';}
+}).catch(()=>{});
+document.getElementById('plan').addEventListener('click',()=>{
  const stake=Number(document.getElementById('stake').value), duration=Number(document.getElementById('duration').value);
  const result=document.getElementById('planresult');
  if(!Number.isFinite(stake)||stake<=0||!Number.isInteger(duration)||duration<1){result.textContent='Enter a valid stake and duration.';return;}
