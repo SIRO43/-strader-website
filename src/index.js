@@ -38,7 +38,7 @@ export default {
       const state = randomString(32);
       const verifier = randomString(64);
       const challenge = await challengeFor(verifier);
-      const payload = btoa(JSON.stringify({state,verifier}));
+      const payload = b64url(new TextEncoder().encode(JSON.stringify({state,verifier})));
       const auth = new URL(AUTH_URL);
       auth.searchParams.set("response_type","code");
       auth.searchParams.set("client_id",APP_ID);
@@ -65,7 +65,7 @@ export default {
         return new Response(htmlPage("Sign-in could not be verified","The authorization response was incomplete. Please start again from STRADER."),{status:400,headers:{"Set-Cookie":clearState}});
       }
       let saved;
-      try { saved = JSON.parse(atob(oauthCookie)); } catch {
+      try { saved = JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(oauthCookie.replace(/-/g,"+").replace(/_/g,"/")), c => c.charCodeAt(0)))); } catch {
         return new Response(htmlPage("Sign-in could not be verified","Your temporary sign-in session was invalid. Please start again."),{status:400,headers:{"Set-Cookie":clearState}});
       }
       if (!saved.state || saved.state !== returnedState || !saved.verifier) {
@@ -88,7 +88,10 @@ export default {
       }
       const maxAge = Math.max(60,Math.min(Number(tokenResponse.expires_in)||3600,2592000));
       const tokenCookie = `strader_session=${tokenResponse.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
-      return new Response(htmlPage("Deriv connected","Your Deriv authorization was received successfully. Live account information and trading features still need to be connected and tested."),{headers:{"Set-Cookie":[clearState,tokenCookie].join(", "),"Cache-Control":"no-store"}});
+      const headers = new Headers({"Cache-Control":"no-store"});
+      headers.append("Set-Cookie", clearState);
+      headers.append("Set-Cookie", tokenCookie);
+      return new Response(htmlPage("Deriv connected","Your Deriv authorization was received successfully. Live account information and trading features still need to be connected and tested."),{headers});
     }
 
     if (url.pathname === "/api/session" && request.method === "GET") {
