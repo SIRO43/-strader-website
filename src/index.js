@@ -80,12 +80,18 @@ export default {
         redirect_uri:REDIRECT_URI
       });
       let tokenResponse;
+      let tokenStatus = 0;
       try {
         const response = await fetch(TOKEN_URL,{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body});
-        tokenResponse = await response.json();
-        if (!response.ok || !tokenResponse.access_token) throw new Error("token exchange failed");
+        tokenStatus = response.status;
+        const raw = await response.text();
+        try { tokenResponse = JSON.parse(raw); } catch { tokenResponse = {error:"non_json_response"}; }
+        if (!response.ok || !tokenResponse.access_token) {
+          const reason = String(tokenResponse.error || tokenResponse.code || "token_exchange_rejected").slice(0,100);
+          return new Response(htmlPage("Deriv connection failed",`Deriv rejected the token exchange (HTTP ${tokenStatus}; ${reason}). No password or access token is displayed. Please restart sign-in to try again.`),{status:502,headers:{"Set-Cookie":clearState,"Cache-Control":"no-store"}});
+        }
       } catch {
-        return new Response(htmlPage("Deriv connection failed","STRADER could not complete the secure token exchange. Please try connecting again."),{status:502,headers:{"Set-Cookie":clearState}});
+        return new Response(htmlPage("Deriv connection failed","STRADER could not reach Deriv's token service. Please try connecting again."),{status:502,headers:{"Set-Cookie":clearState,"Cache-Control":"no-store"}});
       }
       const maxAge = Math.max(60,Math.min(Number(tokenResponse.expires_in)||3600,2592000));
       const tokenCookie = `strader_session=${tokenResponse.access_token}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
