@@ -23,7 +23,7 @@ async function challengeFor(verifier) {
   return b64url(new Uint8Array(digest));
 }
 function htmlPage(title, message) {
-  return new Response(`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${title} | STRADER</title><body style="margin:0;background:#07111f;color:#f5f8fc;font:16px Arial;display:grid;min-height:100vh;place-items:center"><main style="max-width:560px;padding:32px;background:#101e30;border-radius:16px"><h1 style="color:#00d084">STRADER</h1><h2>${title}</h2><p>${message}</p><p><a style="color:#00d084" href="/">Return to STRADER</a></p></main></body></html>`, {headers:{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store"}});
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${title} | STRADER</title><body style="margin:0;background:#07111f;color:#f5f8fc;font:16px Arial;display:grid;min-height:100vh;place-items:center"><main style="max-width:560px;padding:32px;background:#101e30;border-radius:16px"><h1 style="color:#00d084">STRADER</h1><h2>${title}</h2><p>${message}</p><p><a style="color:#00d084" href="/">Return to STRADER</a></p></main></body></html>`;
 }
 
 export default {
