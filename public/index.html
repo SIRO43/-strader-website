@@ -1,35 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>STRADER | Trading Platform</title>
-  <style>
-    body {
-      margin: 0;
-      background: #07111f;
-      color: white;
-      font-family: Arial, sans-serif;
-      text-align: center;
-    }
-    header {
-      padding: 25px;
-      background: #101e30;
-    }
-    h1 { color: #00d084; }
-    main { padding: 80px 20px; }
-    p { color: #b7c5d6; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#07111f">
+<title>STRADER | Trading Dashboard</title>
+<style>
+:root{--bg:#07111f;--panel:#101e30;--panel2:#14263b;--green:#00d084;--muted:#9fb0c5;--line:#24384e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f5f8fc;font:15px Arial,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 5%;background:#0c1929;border-bottom:1px solid var(--line);position:sticky;top:0}
+.logo{font-size:24px;font-weight:800;letter-spacing:2px;color:var(--green)}.status{font-size:12px;color:var(--muted)}
+main{max-width:1180px;margin:auto;padding:28px 20px}.welcome h1{margin:0 0 8px;font-size:30px}.welcome p{margin:0;color:var(--muted)}
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:24px 0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:20px}
+.panel h2{font-size:17px;margin:0 0 16px}.metric{font-size:25px;font-weight:700}.muted{color:var(--muted);font-size:13px}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:24px 0 14px}
+.tab{border:1px solid var(--line);background:var(--panel);color:#dce6f2;padding:11px 16px;border-radius:9px;cursor:pointer}
+.tab.active{background:var(--green);color:#06150f;border-color:var(--green);font-weight:bold}
+.content{display:none}.content.active{display:block}
+label{display:block;color:var(--muted);font-size:13px;margin:12px 0 6px}
+input,select{width:100%;padding:12px;border-radius:8px;border:1px solid var(--line);background:#091626;color:white}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.action{margin-top:16px;padding:12px 16px;border:0;border-radius:8px;background:var(--green);color:#06150f;font-weight:bold;cursor:pointer}
+.notice{margin-top:14px;padding:13px;border-radius:9px;background:#17283b;color:#c5d4e5;font-size:13px;line-height:1.5}
+.market{display:flex;justify-content:space-between;padding:13px 0;border-bottom:1px solid var(--line)}.market:last-child{border:0}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
+@media(max-width:720px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}header{padding:16px 20px}.welcome h1{font-size:25px}}
+</style>
 </head>
 <body>
-  <header>
-    <h2>STRADER</h2>
-  </header>
-  <main>
-    <h1>Trade Smarter with STRADER</h1>
-    <p>Your trading platform is coming soon.</p>
-    <p>Independent third-party platform.
-       Not affiliated with Deriv.</p>
-  </main>
+<header><div class="logo">STRADER</div><div class="status">TRADING WORKSPACE · DEMO INTERFACE</div></header>
+<main>
+<section class="welcome"><h1>Welcome to STRADER</h1><p>Your trading workspace for market analysis and trade planning.</p></section>
+<section class="grid">
+<div class="panel"><div class="muted">Account balance</div><div class="metric">—</div><div class="muted">Connect Deriv to load account data</div></div>
+<div class="panel"><div class="muted">Open positions</div><div class="metric">—</div><div class="muted">Live account connection required</div></div>
+<div class="panel"><div class="muted">Connection</div><div class="metric" style="color:#f4c66a">Not connected</div><div class="muted">Deriv authorization is not configured</div></div>
+</section>
+<div class="tabs">
+<button class="tab active" data-tab="markets">Market watch</button>
+<button class="tab" data-tab="manual">Manual trade</button>
+<button class="tab" data-tab="bot">Auto trader</button>
+<button class="tab" data-tab="account">Account</button>
+</div>
+<section id="markets" class="content active panel">
+<h2>Market watch</h2>
+<div class="market"><span>Volatility 10 Index</span><span class="muted">Live data unavailable</span></div>
+<div class="market"><span>Volatility 25 Index</span><span class="muted">Live data unavailable</span></div>
+<div class="market"><span>Volatility 50 Index</span><span class="muted">Live data unavailable</span></div>
+<div class="market"><span>Volatility 75 Index</span><span class="muted">Live data unavailable</span></div>
+<div class="market"><span>Volatility 100 Index</span><span class="muted">Live data unavailable</span></div>
+<div class="notice">Market prices will appear here after the Deriv API connection is implemented.</div>
+</section>
+<section id="manual" class="content panel">
+<h2>Manual trade planner</h2>
+<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option>Volatility 10 Index</option><option>Volatility 25 Index</option><option>Volatility 50 Index</option><option>Volatility 75 Index</option><option>Volatility 100 Index</option></select></div><div><label for="direction">Contract direction</label><select id="direction"><option>Rise</option><option>Fall</option></select></div><div><label for="stake">Stake amount</label><input id="stake" type="number" min="0.35" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" value="5"></div></div>
+<button class="action" id="plan">Review trade plan</button><div class="notice" id="planresult">This is a planning interface only. No order will be sent.</div>
+</section>
+<section id="bot" class="content panel">
+<h2>Automated trading</h2>
+<p class="muted">Configure a strategy before connecting any trading account.</p>
+<div class="row"><div><label for="botstake">Stake per trade</label><input id="botstake" type="number" min="0.35" step="0.01" value="1"></div><div><label for="maxloss">Maximum session loss</label><input id="maxloss" type="number" min="1" value="10"></div></div>
+<div class="notice">Automation is currently disabled. Strategy execution, risk controls and Deriv authorization must be implemented and tested before this feature can place trades. Trading involves risk; profits are not guaranteed.</div>
+<button class="action" disabled style="opacity:.5;cursor:not-allowed">Bot not enabled</button>
+</section>
+<section id="account" class="content panel">
+<h2>Deriv account</h2>
+<p class="muted">Your account information is not connected yet.</p>
+<div class="notice">The Deriv OAuth application and API connection still need to be configured. Do not enter your Deriv password on this page.</div>
+<button class="action" disabled style="opacity:.5;cursor:not-allowed">Connect Deriv — setup required</button>
+</section>
+</main>
+<footer>STRADER is an independent third-party project and is not affiliated with Deriv. Trading carries financial risk.</footer>
+<script>
+document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click',()=>{
+ document.querySelectorAll('.tab').forEach(item=>item.classList.toggle('active',item===button));
+ document.querySelectorAll('.content').forEach(item=>item.classList.toggle('active',item.id===button.dataset.tab));
+}));
+document.getElementById('plan').addEventListener('click',()=>{
+ const stake=Number(document.getElementById('stake').value), duration=Number(document.getElementById('duration').value);
+ const result=document.getElementById('planresult');
+ if(!Number.isFinite(stake)||stake<=0||!Number.isInteger(duration)||duration<1){result.textContent='Enter a valid stake and duration.';return;}
+ result.textContent='Plan only: '+document.getElementById('direction').value+' on '+document.getElementById('symbol').value+', stake '+stake.toFixed(2)+', duration '+duration+' ticks. No trade has been placed.';
+});
+</script>
 </body>
 </html>
