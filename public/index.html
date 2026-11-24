@@ -67,9 +67,9 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
 </section>
 <section id="account" class="content panel">
 <h2>Deriv account</h2>
-<p class="muted">Your account information is not connected yet.</p>
-<div class="notice">The Deriv OAuth application and API connection still need to be configured. Do not enter your Deriv password on this page.</div>
-<button class="action" disabled style="opacity:.5;cursor:not-allowed">Connect Deriv — setup required</button>
+<p class="muted">Your account information will be available after secure authorization and account API integration.</p>
+<div class="notice">Connect your Deriv account through Deriv’s secure sign-in page. STRADER will never ask for your Deriv password.</div>
+<a class="action" href="/auth/deriv" style="display:inline-block;text-decoration:none">Connect Deriv securely</a>
 </section>
 </main>
 <footer>STRADER is an independent third-party project and is not affiliated with Deriv. Trading carries financial risk.</footer>
@@ -78,7 +78,7 @@ document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click
  document.querySelectorAll('.tab').forEach(item=>item.classList.toggle('active',item===button));
  document.querySelectorAll('.content').forEach(item=>item.classList.toggle('active',item.id===button.dataset.tab));
 }));
-document.getElementById('plan').addEventListener('click',()=>{
+fetch('/api/session').then(r=>r.json()).then(session=>{\n const status=document.querySelector('.grid .panel:nth-child(3) .metric');\n const note=document.querySelector('.grid .panel:nth-child(3) .muted:last-child');\n if(session.authenticated){status.textContent='Authorized';status.style.color='#00d084';note.textContent='Deriv account connected';}\n}).catch(()=>{});\ndocument.getElementById('plan').addEventListener('click',()=>{
  const stake=Number(document.getElementById('stake').value), duration=Number(document.getElementById('duration').value);
  const result=document.getElementById('planresult');
  if(!Number.isFinite(stake)||stake<=0||!Number.isInteger(duration)||duration<1){result.textContent='Enter a valid stake and duration.';return;}
