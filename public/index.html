@@ -54,9 +54,12 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
 <div class="notice">Market prices will appear here after the Deriv API connection is implemented.</div>
 </section>
 <section id="manual" class="content panel">
-<h2>Manual trade planner</h2>
-<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option>Volatility 10 Index</option><option>Volatility 25 Index</option><option>Volatility 50 Index</option><option>Volatility 75 Index</option><option>Volatility 100 Index</option></select></div><div><label for="direction">Contract direction</label><select id="direction"><option>Rise</option><option>Fall</option></select></div><div><label for="stake">Stake amount</label><input id="stake" type="number" min="0.35" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" value="5"></div></div>
-<button class="action" id="plan">Review trade plan</button><div class="notice" id="planresult">This is a planning interface only. No order will be sent.</div>
+<h2>Manual demo trade</h2>
+<div class="notice">DEMO ACCOUNT ONLY · Real-money accounts are not used by this trading panel. Review the quote before deciding whether to place a demo order.</div>
+<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100">Volatility 100 Index</option></select></div><div><label for="direction">Contract direction</label><select id="direction"><option value="CALL">Rise</option><option value="PUT">Fall</option></select></div><div><label for="stake">Stake amount (USD)</label><input id="stake" type="number" min="0.35" max="10" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" max="10" step="1" value="5"></div></div>
+<button class="action" id="plan">Get demo quote</button>
+<button class="action" id="buyDemo" style="display:none;background:#f4c66a">Confirm and place demo trade</button>
+<div class="notice" id="planresult">No trade has been placed. First request a quote; you must separately confirm any demo purchase.</div>
 </section>
 <section id="bot" class="content panel">
 <h2>Automated trading</h2>
@@ -133,12 +136,93 @@ async function loadDerivAccount(){
  }
 }
 loadDerivAccount();
-document.getElementById('plan').addEventListener('click',()=>{
- const stake=Number(document.getElementById('stake').value), duration=Number(document.getElementById('duration').value);
+let demoTradeSocket=null;
+let pendingDemoProposal=null;
+let demoQuoteDetails=null;
+let demoTradeBusy=false;
+function setDemoMessage(message){document.getElementById('planresult').textContent=message;}
+function resetDemoQuote(){pendingDemoProposal=null;demoQuoteDetails=null;document.getElementById('buyDemo').style.display='none';}
+document.getElementById('plan').addEventListener('click',async()=>{
+ const stake=Number(document.getElementById('stake').value);
+ const duration=Number(document.getElementById('duration').value);
+ const symbol=document.getElementById('symbol').value;
+ const direction=document.getElementById('direction').value;
  const result=document.getElementById('planresult');
- if(!Number.isFinite(stake)||stake<=0||!Number.isInteger(duration)||duration<1){result.textContent='Enter a valid stake and duration.';return;}
- result.textContent='Plan only: '+document.getElementById('direction').value+' on '+document.getElementById('symbol').value+', stake '+stake.toFixed(2)+', duration '+duration+' ticks. No trade has been placed.';
+ const quoteButton=document.getElementById('plan');
+ resetDemoQuote();
+ if(!Number.isFinite(stake)||stake<0.35||stake>10||!Number.isInteger(duration)||duration<1||duration>10){
+  setDemoMessage('For this initial demo test, enter a stake from $0.35 to $10 and a duration from 1 to 10 ticks.');return;
+ }
+ quoteButton.disabled=true;quoteButton.textContent='Getting quote…';
+ setDemoMessage('Connecting securely to your demo account and requesting a price quote…');
+ try{
+  const otpResponse=await fetch('/api/deriv/demo/otp',{method:'POST',cache:'no-store'});
+  const otpPayload=await otpResponse.json();
+  if(!otpResponse.ok||!otpPayload.url)throw new Error(otpPayload.details||otpPayload.error||'Could not connect to the demo account.');
+  if(!otpPayload.url.startsWith('wss://api.derivws.com/trading/v1/options/ws/demo?'))throw new Error('Safety check blocked a non-demo trading connection.');
+  if(demoTradeSocket)try{demoTradeSocket.close()}catch{}
+  demoTradeSocket=new WebSocket(otpPayload.url);
+  demoTradeSocket.onopen=()=>{
+   demoTradeSocket.send(JSON.stringify({proposal:1,amount:stake,basis:'stake',contract_type:direction,currency:otpPayload.currency||'USD',duration:duration,duration_unit:'t',underlying_symbol:symbol,req_id:71}));
+  };
+  demoTradeSocket.onmessage=(event)=>{
+   let message;try{message=JSON.parse(event.data)}catch{return}
+   if(message.req_id===71){
+    if(message.error){setDemoMessage('Deriv could not quote this contract: '+message.error.message);return}
+    const proposal=message.proposal;
+    if(!proposal||!proposal.id){setDemoMessage('Deriv did not return a valid quote.');return}
+    pendingDemoProposal={id:proposal.id,price:Number(proposal.ask_price)};
+    demoQuoteDetails={stake,duration,symbol,direction,account:otpPayload.account_id,currency:otpPayload.currency||'USD'};
+    const marketName=document.querySelector('#symbol option:checked').textContent;
+    const directionName=direction==='CALL'?'Rise':'Fall';
+    setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake 
+</script>
+</body>
+</html>+stake.toFixed(2)+' · '+duration+' ticks · Purchase price 
+</script>
+</body>
+</html>+Number(proposal.ask_price).toFixed(2)+'. Potential payout: '+(proposal.payout!==undefined?'
+</script>
+</body>
+</html>+Number(proposal.payout).toFixed(2):'shown by Deriv at purchase')+'. No trade has been placed yet.');
+    document.getElementById('buyDemo').style.display='inline-block';
+    document.getElementById('plan').disabled=false;
+    document.getElementById('plan').textContent='Refresh quote';
+   }
+   if(message.req_id===72){
+    if(message.error){setDemoMessage('Demo purchase was rejected: '+message.error.message);demoTradeBusy=false;return}
+    const bought=message.buy||{};
+    setDemoMessage('DEMO TRADE PLACED. Contract ID: '+(bought.contract_id||'received')+'. Stake: 
+</script>
+</body>
+</html>+demoQuoteDetails.stake.toFixed(2)+'. This order was sent to your demo account only.');
+    document.getElementById('buyDemo').style.display='none';
+    document.getElementById('positionsMetric').textContent='1';
+    document.getElementById('positionsNote').textContent='A demo contract was just purchased; portfolio refresh is next.';
+    pendingDemoProposal=null;demoTradeBusy=false;
+   }
+  };
+  demoTradeSocket.onerror=()=>{setDemoMessage('The secure demo trading connection failed. Please try again.');};
+  demoTradeSocket.onclose=()=>{if(!pendingDemoProposal&&!demoTradeBusy)return; if(!demoTradeBusy)setDemoMessage('The demo connection closed. Request a fresh quote.');};
+ }catch(error){setDemoMessage('Demo quote error: '+error.message);}
+ finally{quoteButton.disabled=false;quoteButton.textContent='Get demo quote';}
 });
+document.getElementById('buyDemo').addEventListener('click',()=>{
+ if(!pendingDemoProposal||!demoQuoteDetails||!demoTradeSocket||demoTradeSocket.readyState!==WebSocket.OPEN||demoTradeBusy)return;
+ const marketName=document.querySelector('#symbol option:checked').textContent;
+ const directionName=demoQuoteDetails.direction==='CALL'?'Rise':'Fall';
+ const confirmed=window.confirm('PLACE DEMO TRADE ONLY?\\n\\n'+marketName+' · '+directionName+'\\nStake: 
+</script>
+</body>
+</html>+demoQuoteDetails.stake.toFixed(2)+'\\nDuration: '+demoQuoteDetails.duration+' ticks\\nDemo account: '+demoQuoteDetails.account+'\\n\\nThis will place a demo order, not a real-money order.');
+ if(!confirmed)return;
+ demoTradeBusy=true;
+ document.getElementById('buyDemo').disabled=true;
+ setDemoMessage('Sending your confirmed demo order to Deriv…');
+ demoTradeSocket.send(JSON.stringify({buy:pendingDemoProposal.id,price:pendingDemoProposal.price,req_id:72}));
+ setTimeout(()=>{if(demoTradeBusy){demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;setDemoMessage('No purchase confirmation received yet. Check your Deriv demo portfolio before trying again; do not click buy again until you confirm whether an order was placed.');}},15000);
+});
+
 </script>
 </body>
 </html>
