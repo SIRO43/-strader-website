@@ -95,6 +95,11 @@ async function loadDerivAccount(){
   const accounts=Array.isArray(accountPayload.data)?accountPayload.data:(accountPayload.data?[accountPayload.data]:[]);
   if(!accounts.length)throw new Error('No Options trading account was returned by Deriv.');
   const account=accounts.find(a=>String(a.account_type||'').toLowerCase()==='demo')||accounts[0];
+  const listedBalance=Number(account.balance);
+  if(Number.isFinite(listedBalance)){
+   balance.textContent=listedBalance.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(account.currency||'');
+   balanceNote.textContent=(String(account.account_type||'Deriv').toUpperCase())+' account balance · '+(account.account_id||'');
+  }
   const otpResponse=await fetch('/api/deriv/otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:account.account_id})});
   const otpPayload=await otpResponse.json();
   if(!otpResponse.ok||!otpPayload.data||!otpPayload.data.url)throw new Error((otpPayload.errors&&otpPayload.errors[0]&&otpPayload.errors[0].message)||otpPayload.error||'Could not open the secure Deriv account connection');
