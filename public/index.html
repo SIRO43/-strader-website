@@ -81,6 +81,72 @@ document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click
  document.querySelectorAll('.tab').forEach(item=>item.classList.toggle('active',item===button));
  document.querySelectorAll('.content').forEach(item=>item.classList.toggle('active',item.id===button.dataset.tab));
 }));
+const volatilityFallback = [
+ {symbol:'R_10',name:'Volatility 10 Index'},
+ {symbol:'R_25',name:'Volatility 25 Index'},
+ {symbol:'R_50',name:'Volatility 50 Index'},
+ {symbol:'R_75',name:'Volatility 75 Index'},
+ {symbol:'R_100',name:'Volatility 100 Index'},
+ {symbol:'1HZ10V',name:'Volatility 10 (1s) Index'},
+ {symbol:'1HZ15V',name:'Volatility 15 (1s) Index'},
+ {symbol:'1HZ25V',name:'Volatility 25 (1s) Index'},
+ {symbol:'1HZ30V',name:'Volatility 30 (1s) Index'},
+ {symbol:'1HZ50V',name:'Volatility 50 (1s) Index'},
+ {symbol:'1HZ75V',name:'Volatility 75 (1s) Index'},
+ {symbol:'1HZ90V',name:'Volatility 90 (1s) Index'},
+ {symbol:'1HZ100V',name:'Volatility 100 (1s) Index'},
+ {symbol:'1HZ150V',name:'Volatility 150 (1s) Index'},
+ {symbol:'1HZ200V',name:'Volatility 200 (1s) Index'},
+ {symbol:'1HZ250V',name:'Volatility 250 (1s) Index'},
+ {symbol:'1HZ300V',name:'Volatility 300 (1s) Index'}
+];
+function renderVolatilityMarkets(markets, sourceLabel){
+ const select=document.getElementById('symbol');
+ const marketPanel=document.getElementById('markets');
+ if(!select||!marketPanel||!markets.length)return;
+ const previous=select.value;
+ select.replaceChildren();
+ markets.forEach(market=>{
+  const option=document.createElement('option');
+  option.value=market.symbol;option.textContent=market.name;
+  select.appendChild(option);
+ });
+ if(markets.some(m=>m.symbol===previous))select.value=previous;
+ marketPanel.querySelectorAll('.market').forEach(row=>row.remove());
+ const notice=marketPanel.querySelector('.notice');
+ markets.forEach(market=>{
+  const row=document.createElement('div');row.className='market';
+  const name=document.createElement('span');name.textContent=market.name;
+  const symbol=document.createElement('span');symbol.className='muted';symbol.textContent=market.symbol;
+  row.append(name,symbol);
+  marketPanel.insertBefore(row,notice||null);
+ });
+ if(notice)notice.textContent='Showing '+markets.length+' Volatility markets · '+sourceLabel+'. Select a market in Manual Trade to request a demo quote.';
+}
+function loadVolatilityMarkets(){
+ renderVolatilityMarkets(volatilityFallback,'built-in list while live discovery loads');
+ let socket;
+ try{socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public');}
+ catch{return;}
+ const timeout=setTimeout(()=>{try{socket.close()}catch{}},8000);
+ socket.onopen=()=>socket.send(JSON.stringify({active_symbols:'brief',req_id:501}));
+ socket.onmessage=(event)=>{
+  let payload;try{payload=JSON.parse(event.data)}catch{return;}
+  if(payload.req_id!==501||!Array.isArray(payload.active_symbols))return;
+  clearTimeout(timeout);
+  const found=payload.active_symbols.map(item=>({
+   symbol:item.underlying_symbol||item.symbol,
+   name:item.underlying_symbol_name||item.display_name||item.symbol
+  })).filter(item=>item.symbol&&(/^(R_\\d+|1HZ\\d+V)$/.test(item.symbol)||/volatility/i.test(item.name)));
+  const unique=Array.from(new Map(found.map(item=>[item.symbol,item])).values());
+  unique.sort((a,b)=>a.name.localeCompare(b.name,undefined,{numeric:true}));
+  if(unique.length)renderVolatilityMarkets(unique,'live Deriv active-symbols feed');
+ };
+ socket.onerror=()=>clearTimeout(timeout);
+ socket.onclose=()=>clearTimeout(timeout);
+}
+loadVolatilityMarkets();
+
 async function loadDerivAccount(){
  const status=document.getElementById('connectionMetric');
  const statusNote=document.getElementById('connectionNote');
