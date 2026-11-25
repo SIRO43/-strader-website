@@ -183,7 +183,7 @@ document.getElementById('plan').addEventListener('click',async()=>{
    if(message.req_id===72){
     if(message.error){setDemoMessage('Demo purchase was rejected: '+message.error.message);demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;return}
     const bought=message.buy||{};
-    setDemoMessage('DEMO TRADE PLACED. Contract ID: '+(bought.contract_id||'received')+'. Stake: 
+    setDemoMessage('DEMO TRADE PLACED. Contract ID: '+(bought.contract_id||'received')+'. Stake: $'+demoQuoteDetails.stake.toFixed(2)+'. This order was sent to your demo account only.');
     document.getElementById('positionsMetric').textContent='1';
     document.getElementById('positionsNote').textContent='A demo contract was just purchased; portfolio refresh is next.';
     pendingDemoProposal=null;demoTradeBusy=false;
