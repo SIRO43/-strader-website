@@ -144,6 +144,35 @@ export default {
       }
     }
 
+
+    if (url.pathname === "/api/deriv/demo/otp" && request.method === "POST") {
+      const token = cookieValue(request,"strader_session");
+      if (!token) return Response.json({error:"not_authenticated"},{status:401,headers:{"Cache-Control":"no-store"}});
+      try {
+        const accountsResponse = await fetch("https://api.derivws.com/trading/v1/options/accounts",{
+          headers:{"Authorization":`Bearer ${token}`,"Accept":"application/json"}
+        });
+        const accountsPayload = await accountsResponse.json();
+        if (!accountsResponse.ok) return Response.json({error:"accounts_request_failed",details:accountsPayload.errors?.[0]?.message||"Deriv account lookup failed"},{status:accountsResponse.status,headers:{"Cache-Control":"no-store"}});
+        const accounts = Array.isArray(accountsPayload.data) ? accountsPayload.data : [];
+        const demo = accounts.find(account => String(account.account_type||"").toLowerCase()==="demo" && String(account.status||"").toLowerCase()==="active");
+        if (!demo) return Response.json({error:"active_demo_account_not_found"},{status:404,headers:{"Cache-Control":"no-store"}});
+        const otpResponse = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${encodeURIComponent(demo.account_id)}/otp`,{
+          method:"POST",
+          headers:{"Authorization":`Bearer ${token}`,"Accept":"application/json"}
+        });
+        const otpPayload = await otpResponse.json();
+        if (!otpResponse.ok || !otpPayload.data?.url) return Response.json({error:"demo_otp_failed",details:otpPayload.errors?.[0]?.message||"Deriv did not issue a demo connection"},{status:otpResponse.status||502,headers:{"Cache-Control":"no-store"}});
+        const wsUrl = new URL(otpPayload.data.url);
+        if (wsUrl.protocol !== "wss:" || wsUrl.hostname !== "api.derivws.com" || wsUrl.pathname !== "/trading/v1/options/ws/demo") {
+          return Response.json({error:"unexpected_demo_endpoint"},{status:502,headers:{"Cache-Control":"no-store"}});
+        }
+        return Response.json({url:otpPayload.data.url,account_id:demo.account_id,currency:demo.currency||"USD",account_type:"demo"},{headers:{"Cache-Control":"no-store"}});
+      } catch {
+        return Response.json({error:"demo_connection_unavailable"},{status:502,headers:{"Cache-Control":"no-store"}});
+      }
+    }
+
     if (url.pathname === "/auth/logout" && request.method === "POST") {
       return new Response(null,{status:204,headers:{"Set-Cookie":"strader_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax","Cache-Control":"no-store"}});
     }
