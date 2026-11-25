@@ -208,34 +208,17 @@ let demoQuoteDetails=null;
 let demoTradeBusy=false;
 function setDemoMessage(message){document.getElementById('planresult').textContent=message;}
 function loadDerivContractTypes(){
- const symbol=document.getElementById('symbol').value;
  const select=document.getElementById('direction');
  const previous=select.value;
- let socket;
- try{socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public')}catch{return}
- let finished=false;
- const timer=setTimeout(()=>{if(!finished){finished=true;try{socket.close()}catch{}}},7000);
- socket.onopen=()=>socket.send(JSON.stringify({contracts_for:symbol,req_id:611}));
- socket.onmessage=(event)=>{
-  let data;try{data=JSON.parse(event.data)}catch{return}
-  if(data.req_id!==611)return;
-  finished=true;clearTimeout(timer);
-  if(data.error){setDemoMessage('Could not load Deriv contract types: '+data.error.message+'. Keeping basic choices.');try{socket.close()}catch{};return}
-  const available=data.contracts_for&&Array.isArray(data.contracts_for.available)?data.contracts_for.available:[];
-  const supported=available.filter(item=>item.contract_type);
-  if(!supported.length){setDemoMessage('Deriv returned no contract types for this market. Keeping basic choices.');try{socket.close()}catch{};return}
-  select.replaceChildren();
-  supported.forEach(item=>{
-   const option=document.createElement('option');
-   option.value=item.contract_type;
-   option.textContent=(item.contract_display||item.contract_type)+' ('+item.contract_type+')';
-   select.appendChild(option);
-  });
-  if(supported.some(item=>item.contract_type===previous))select.value=previous;
-  setDemoMessage('Loaded '+supported.length+' contract types from Deriv for '+symbol+'. Some types may require additional settings not yet provided by this form.');
-  try{socket.close()}catch{}
- };
- socket.onerror=()=>{clearTimeout(timer);if(!finished)setDemoMessage('Deriv contract list is temporarily unavailable. Basic Rise/Fall choices remain.');};
+ select.replaceChildren();
+ [{value:'CALL',label:'Rise (CALL)'},{value:'PUT',label:'Fall (PUT)'}].forEach(item=>{
+  const option=document.createElement('option');
+  option.value=item.value;
+  option.textContent=item.label;
+  select.appendChild(option);
+ });
+ select.value=previous==='PUT'?'PUT':'CALL';
+ setDemoMessage('Deriv contract directions: Rise and Fall.');
 }
 document.getElementById('symbol').addEventListener('change',loadDerivContractTypes);
 loadDerivContractTypes();
