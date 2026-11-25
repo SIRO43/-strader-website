@@ -241,7 +241,7 @@ document.getElementById('plan').addEventListener('click',async()=>{
     demoQuoteDetails={stake,duration,symbol,direction,account:otpPayload.account_id,currency:otpPayload.currency||'USD'};
     const marketName=document.querySelector('#symbol option:checked').textContent;
     const directionName=direction==='CALL'?'Rise':'Fall';
-    setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake $'+stake.toFixed(2)+' · '+duration+' ticks · Purchase price $'+Number(proposal.ask_price).toFixed(2)+'. Potential payout: '+(proposal.payout!==undefined?'$'+Number(proposal.payout).toFixed(2):'shown by Deriv at purchase')+'. No trade has been placed yet.');
+    setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake $'+stake.toFixed(2)+' · '+duration+' ticks · Purchase price $'+Number(proposal.ask_price).toFixed(2)+'. No trade has been placed yet.');
     document.getElementById('buyDemo').style.display='inline-block';
     document.getElementById('plan').disabled=false;
     document.getElementById('plan').textContent='Refresh quote';
@@ -254,7 +254,22 @@ document.getElementById('plan').addEventListener('click',async()=>{
     const marketName=document.querySelector('#symbol option:checked').textContent;
     const directionName=demoQuoteDetails.direction==='CALL'?'Rise':'Fall';
     const freshPrice=Number(fresh.ask_price);
-    const confirmed=window.confirm('FRESH DERIV DEMO PRICE\\n'+marketName+' · '+directionName+'\\nStake: 
+    const confirmed=window.confirm('FRESH DERIV DEMO PRICE | '+marketName+' · '+directionName+' | Stake: $'+demoQuoteDetails.stake.toFixed(2)+' | '+demoQuoteDetails.duration+' ticks | Current purchase price: $'+freshPrice.toFixed(2)+' | Place this demo order now?');
+    if(!confirmed){demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;setDemoMessage('Fresh price received. Purchase cancelled; no order was sent.');return}
+    setDemoMessage('Fresh price accepted. Sending the demo purchase to Deriv…');
+    demoTradeSocket.send(JSON.stringify({buy:fresh.id,price:freshPrice,req_id:74}));
+    return;
+   }
+   if(message.req_id===74){
+    if(message.error){setDemoMessage('Demo purchase was rejected: '+message.error.message+'. No successful purchase was confirmed.');demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;return}
+    const bought=message.buy||{};
+    if(!bought.contract_id){setDemoMessage('Deriv returned no contract ID. Check your demo portfolio before trying again.');demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;return}
+    setDemoMessage('DEMO TRADE PLACED. Contract ID: '+bought.contract_id+'. Stake: $'+demoQuoteDetails.stake.toFixed(2)+'. Demo account only.');
+    document.getElementById('buyDemo').style.display='none';
+    document.getElementById('positionsMetric').textContent='1';
+    document.getElementById('positionsNote').textContent='A demo contract was just purchased; portfolio refresh is next.';
+    pendingDemoProposal=null;demoTradeBusy=false;
+   }
   };
   demoTradeSocket.onerror=()=>{setDemoMessage('The secure demo trading connection failed. Please try again.');};
   demoTradeSocket.onclose=()=>{if(!pendingDemoProposal&&!demoTradeBusy)return; if(!demoTradeBusy)setDemoMessage('The demo connection closed. Request a fresh quote.');};
