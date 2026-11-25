@@ -34,9 +34,9 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
 <main>
 <section class="welcome"><h1>Welcome to STRADER</h1><p>Your trading workspace for market analysis and trade planning.</p></section>
 <section class="grid">
-<div class="panel"><div class="muted">Account balance</div><div class="metric">—</div><div class="muted">Connect Deriv to load account data</div></div>
-<div class="panel"><div class="muted">Open positions</div><div class="metric">—</div><div class="muted">Live account connection required</div></div>
-<div class="panel"><div class="muted">Connection</div><div class="metric" style="color:#f4c66a">Not connected</div><div class="muted">Deriv authorization is not configured</div></div>
+<div class="panel"><div class="muted">Account balance</div><div class="metric" id="balanceMetric">—</div><div class="muted" id="balanceNote">Connect Deriv to load account data</div></div>
+<div class="panel"><div class="muted">Open positions</div><div class="metric" id="positionsMetric">—</div><div class="muted" id="positionsNote">Live account connection required</div></div>
+<div class="panel"><div class="muted">Connection</div><div class="metric" id="connectionMetric" style="color:#f4c66a">Not connected</div><div class="muted" id="connectionNote">Deriv authorization is not configured</div></div>
 </section>
 <div class="tabs">
 <button class="tab active" data-tab="markets">Market watch</button>
@@ -78,11 +78,56 @@ document.querySelectorAll('.tab').forEach(button=>button.addEventListener('click
  document.querySelectorAll('.tab').forEach(item=>item.classList.toggle('active',item===button));
  document.querySelectorAll('.content').forEach(item=>item.classList.toggle('active',item.id===button.dataset.tab));
 }));
-fetch('/api/session').then(r=>r.json()).then(session=>{
- const status=document.querySelector('.grid .panel:nth-child(3) .metric');
- const note=document.querySelector('.grid .panel:nth-child(3) .muted:last-child');
- if(session.authenticated){status.textContent='Authorized';status.style.color='#00d084';note.textContent='Deriv account connected';}
-}).catch(()=>{});
+async function loadDerivAccount(){
+ const status=document.getElementById('connectionMetric');
+ const statusNote=document.getElementById('connectionNote');
+ const balance=document.getElementById('balanceMetric');
+ const balanceNote=document.getElementById('balanceNote');
+ const positions=document.getElementById('positionsMetric');
+ const positionsNote=document.getElementById('positionsNote');
+ try{
+  const session=await fetch('/api/session',{cache:'no-store'}).then(r=>r.json());
+  if(!session.authenticated)return;
+  status.textContent='Authorized';status.style.color='#00d084';statusNote.textContent='Loading Deriv account details…';
+  const accountResponse=await fetch('/api/deriv/accounts',{cache:'no-store'});
+  const accountPayload=await accountResponse.json();
+  if(!accountResponse.ok)throw new Error((accountPayload.errors&&accountPayload.errors[0]&&accountPayload.errors[0].message)||accountPayload.error||'Could not load Deriv accounts');
+  const accounts=Array.isArray(accountPayload.data)?accountPayload.data:(accountPayload.data?[accountPayload.data]:[]);
+  if(!accounts.length)throw new Error('No Options trading account was returned by Deriv.');
+  const account=accounts.find(a=>String(a.account_type||'').toLowerCase()==='demo')||accounts[0];
+  const otpResponse=await fetch('/api/deriv/otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({account_id:account.account_id})});
+  const otpPayload=await otpResponse.json();
+  if(!otpResponse.ok||!otpPayload.data||!otpPayload.data.url)throw new Error((otpPayload.errors&&otpPayload.errors[0]&&otpPayload.errors[0].message)||otpPayload.error||'Could not open the secure Deriv account connection');
+  statusNote.textContent='Connected to '+(account.account_type||'Deriv')+' account '+(account.account_id||'');
+  const socket=new WebSocket(otpPayload.data.url);
+  socket.onopen=()=>{
+   socket.send(JSON.stringify({balance:1,subscribe:1,req_id:1}));
+   socket.send(JSON.stringify({portfolio:1,req_id:2}));
+  };
+  socket.onmessage=(event)=>{
+   let message;try{message=JSON.parse(event.data)}catch{return}
+   if(message.error){statusNote.textContent='Deriv data error: '+(message.error.message||'Request rejected');return}
+   if(message.msg_type==='balance'&&message.balance){
+    const amount=Number(message.balance.balance);
+    balance.textContent=Number.isFinite(amount)?amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})+' '+(message.balance.currency||''):'—';
+    balanceNote.textContent='Live Deriv account balance';
+   }
+   if(message.msg_type==='portfolio'&&message.portfolio){
+    const contracts=Array.isArray(message.portfolio.contracts)?message.portfolio.contracts:[];
+    positions.textContent=String(contracts.length);
+    positionsNote.textContent=contracts.length?'Active open contracts':'No open positions';
+   }
+  };
+  socket.onerror=()=>{statusNote.textContent='Account stream could not be opened. Please reconnect Deriv.'};
+  socket.onclose=()=>{if(positions.textContent==='—')positionsNote.textContent='Account stream closed';};
+ }catch(error){
+  status.textContent='Authorized';status.style.color='#00d084';
+  statusNote.textContent='Account data unavailable: '+error.message;
+  balanceNote.textContent='Check connection and reconnect if needed';
+  positionsNote.textContent='Waiting for account data';
+ }
+}
+loadDerivAccount();
 document.getElementById('plan').addEventListener('click',()=>{
  const stake=Number(document.getElementById('stake').value), duration=Number(document.getElementById('duration').value);
  const result=document.getElementById('planresult');
