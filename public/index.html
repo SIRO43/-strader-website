@@ -175,16 +175,7 @@ document.getElementById('plan').addEventListener('click',async()=>{
     demoQuoteDetails={stake,duration,symbol,direction,account:otpPayload.account_id,currency:otpPayload.currency||'USD'};
     const marketName=document.querySelector('#symbol option:checked').textContent;
     const directionName=direction==='CALL'?'Rise':'Fall';
-    setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake 
-</script>
-</body>
-</html>+stake.toFixed(2)+' · '+duration+' ticks · Purchase price 
-</script>
-</body>
-</html>+Number(proposal.ask_price).toFixed(2)+'. Potential payout: '+(proposal.payout!==undefined?'
-</script>
-</body>
-</html>+Number(proposal.payout).toFixed(2):'shown by Deriv at purchase')+'. No trade has been placed yet.');
+    setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake $'+stake.toFixed(2)+' · '+duration+' ticks · Purchase price $'+Number(proposal.ask_price).toFixed(2)+'. Potential payout: '+(proposal.payout!==undefined?'$'+Number(proposal.payout).toFixed(2):'shown by Deriv at purchase')+'. No trade has been placed yet.');
     document.getElementById('buyDemo').style.display='inline-block';
     document.getElementById('plan').disabled=false;
     document.getElementById('plan').textContent='Refresh quote';
@@ -211,10 +202,7 @@ document.getElementById('buyDemo').addEventListener('click',()=>{
  if(!pendingDemoProposal||!demoQuoteDetails||!demoTradeSocket||demoTradeSocket.readyState!==WebSocket.OPEN||demoTradeBusy)return;
  const marketName=document.querySelector('#symbol option:checked').textContent;
  const directionName=demoQuoteDetails.direction==='CALL'?'Rise':'Fall';
- const confirmed=window.confirm('PLACE DEMO TRADE ONLY?\\n\\n'+marketName+' · '+directionName+'\\nStake: 
-</script>
-</body>
-</html>+demoQuoteDetails.stake.toFixed(2)+'\\nDuration: '+demoQuoteDetails.duration+' ticks\\nDemo account: '+demoQuoteDetails.account+'\\n\\nThis will place a demo order, not a real-money order.');
+ const confirmed=window.confirm('PLACE DEMO TRADE ONLY? | '+marketName+' · '+directionName+' | Stake: $'+demoQuoteDetails.stake.toFixed(2)+' | Duration: '+demoQuoteDetails.duration+' ticks | Demo account: '+demoQuoteDetails.account+' | This will place a demo order, not a real-money order.');
  if(!confirmed)return;
  demoTradeBusy=true;
  document.getElementById('buyDemo').disabled=true;
