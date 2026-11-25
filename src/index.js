@@ -106,6 +106,44 @@ export default {
       return Response.json({authenticated:!!token,provider:token?"Deriv":null},{headers:{"Cache-Control":"no-store"}});
     }
 
+
+    if (url.pathname === "/api/deriv/accounts" && request.method === "GET") {
+      const token = cookieValue(request,"strader_session");
+      if (!token) return Response.json({error:"not_authenticated"},{status:401,headers:{"Cache-Control":"no-store"}});
+      try {
+        const upstream = await fetch("https://api.derivws.com/trading/v1/options/accounts",{
+          headers:{"Authorization":`Bearer ${token}`,"Accept":"application/json"}
+        });
+        const data = await upstream.json();
+        return Response.json(data,{status:upstream.status,headers:{"Cache-Control":"no-store"}});
+      } catch {
+        return Response.json({error:"deriv_accounts_unavailable"},{status:502,headers:{"Cache-Control":"no-store"}});
+      }
+    }
+
+    if (url.pathname === "/api/deriv/otp" && request.method === "POST") {
+      const token = cookieValue(request,"strader_session");
+      if (!token) return Response.json({error:"not_authenticated"},{status:401,headers:{"Cache-Control":"no-store"}});
+      let input;
+      try { input = await request.json(); } catch {
+        return Response.json({error:"invalid_request"},{status:400});
+      }
+      const accountId = String(input.account_id || "");
+      if (!/^[A-Za-z0-9_-]{3,64}$/.test(accountId)) {
+        return Response.json({error:"invalid_account_id"},{status:400});
+      }
+      try {
+        const upstream = await fetch(`https://api.derivws.com/trading/v1/options/accounts/${encodeURIComponent(accountId)}/otp`,{
+          method:"POST",
+          headers:{"Authorization":`Bearer ${token}`,"Accept":"application/json"}
+        });
+        const data = await upstream.json();
+        return Response.json(data,{status:upstream.status,headers:{"Cache-Control":"no-store"}});
+      } catch {
+        return Response.json({error:"deriv_otp_unavailable"},{status:502,headers:{"Cache-Control":"no-store"}});
+      }
+    }
+
     if (url.pathname === "/auth/logout" && request.method === "POST") {
       return new Response(null,{status:204,headers:{"Set-Cookie":"strader_session=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax","Cache-Control":"no-store"}});
     }
