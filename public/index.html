@@ -56,7 +56,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
 <section id="manual" class="content panel">
 <h2>Manual demo trade</h2>
 <div class="notice">DEMO ACCOUNT ONLY · Real-money accounts are not used by this trading panel. Review the quote before deciding whether to place a demo order.</div>
-<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100">Volatility 100 Index</option></select></div><div><label for="direction">Deriv contract type</label><select id="direction"><option value="CALL">Rise (CALL)</option><option value="PUT">Fall (PUT)</option></select></div><div><label for="stake">Stake amount (USD)</label><input id="stake" type="number" min="0.35" max="10" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" max="10" step="1" value="5"></div></div>
+<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100">Volatility 100 Index</option></select></div><div><label for="direction">Deriv contract type</label><select id="direction"><option value="CALL">Rise (CALL)</option><option value="PUT">Fall (PUT)</option><option value="DIGITOVER">Over (DIGITOVER)</option><option value="DIGITUNDER">Under (DIGITUNDER)</option></select></div><div><label for="stake">Stake amount (USD)</label><input id="stake" type="number" min="0.35" max="10" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" max="10" step="1" value="5"></div><div id="barrierField" style="display:none"><label for="barrier">Barrier digit (0–9)</label><input id="barrier" type="number" min="0" max="9" step="1" value="5"></div></div>
 <button class="action" id="plan">Get demo quote</button>
 <button class="action" id="buyDemo" style="display:none;background:#f4c66a">Confirm and place demo trade</button>
 <div class="notice" id="planresult">No trade has been placed. First request a quote; you must separately confirm any demo purchase.</div>
@@ -211,15 +211,21 @@ function loadDerivContractTypes(){
  const select=document.getElementById('direction');
  const previous=select.value;
  select.replaceChildren();
- [{value:'CALL',label:'Rise (CALL)'},{value:'PUT',label:'Fall (PUT)'}].forEach(item=>{
+ [{value:'CALL',label:'Rise (CALL)'},{value:'PUT',label:'Fall (PUT)'},{value:'DIGITOVER',label:'Over (DIGITOVER)'},{value:'DIGITUNDER',label:'Under (DIGITUNDER)'}].forEach(item=>{
   const option=document.createElement('option');
   option.value=item.value;
   option.textContent=item.label;
   select.appendChild(option);
  });
- select.value=previous==='PUT'?'PUT':'CALL';
- setDemoMessage('Deriv contract directions: Rise and Fall.');
+ select.value=['CALL','PUT','DIGITOVER','DIGITUNDER'].includes(previous)?previous:'CALL';
+ updateBarrierField();
+ setDemoMessage('Deriv contract directions: Rise, Fall, Over and Under.');
 }
+function updateBarrierField(){
+ const direction=document.getElementById('direction').value;
+ document.getElementById('barrierField').style.display=(direction==='DIGITOVER'||direction==='DIGITUNDER')?'block':'none';
+}
+document.getElementById('direction').addEventListener('change',updateBarrierField);
 document.getElementById('symbol').addEventListener('change',loadDerivContractTypes);
 loadDerivContractTypes();
 
@@ -229,11 +235,15 @@ document.getElementById('plan').addEventListener('click',async()=>{
  const duration=Number(document.getElementById('duration').value);
  const symbol=document.getElementById('symbol').value;
  const direction=document.getElementById('direction').value;
+ const barrier=Number(document.getElementById('barrier').value);
  const result=document.getElementById('planresult');
  const quoteButton=document.getElementById('plan');
  resetDemoQuote();
  if(!Number.isFinite(stake)||stake<0.35||stake>10||!Number.isInteger(duration)||duration<1||duration>10){
   setDemoMessage('For this initial demo test, enter a stake from $0.35 to $10 and a duration from 1 to 10 ticks.');return;
+ }
+ if((direction==='DIGITOVER'||direction==='DIGITUNDER')&&(!Number.isInteger(barrier)||barrier<0||barrier>9)){
+  setDemoMessage('For Over/Under, enter a barrier digit from 0 to 9.');return;
  }
  quoteButton.disabled=true;quoteButton.textContent='Getting quote…';
  setDemoMessage('Connecting securely to your demo account and requesting a price quote…');
@@ -245,7 +255,7 @@ document.getElementById('plan').addEventListener('click',async()=>{
   if(demoTradeSocket)try{demoTradeSocket.close()}catch{}
   demoTradeSocket=new WebSocket(otpPayload.url);
   demoTradeSocket.onopen=()=>{
-   demoTradeSocket.send(JSON.stringify({proposal:1,amount:stake,basis:'stake',contract_type:direction,currency:otpPayload.currency||'USD',duration:duration,duration_unit:'t',underlying_symbol:symbol,req_id:71}));
+   demoTradeSocket.send(JSON.stringify({proposal:1,amount:stake,basis:'stake',contract_type:direction,...((direction==='DIGITOVER'||direction==='DIGITUNDER')?{barrier:String(barrier)}:{}),currency:otpPayload.currency||'USD',duration:duration,duration_unit:'t',underlying_symbol:symbol,req_id:71}));
   };
   demoTradeSocket.onmessage=(event)=>{
    let message;try{message=JSON.parse(event.data)}catch{return}
@@ -254,9 +264,9 @@ document.getElementById('plan').addEventListener('click',async()=>{
     const proposal=message.proposal;
     if(!proposal||!proposal.id){setDemoMessage('Deriv did not return a valid quote.');return}
     pendingDemoProposal={id:proposal.id,price:Number(proposal.ask_price)};
-    demoQuoteDetails={stake,duration,symbol,direction,account:otpPayload.account_id,currency:otpPayload.currency||'USD'};
+    demoQuoteDetails={stake,duration,symbol,direction,barrier,account:otpPayload.account_id,currency:otpPayload.currency||'USD'};
     const marketName=document.querySelector('#symbol option:checked').textContent;
-    const directionName=direction==='CALL'?'Rise':'Fall';
+    const directionName=direction==='CALL'?'Rise':direction==='PUT'?'Fall':direction==='DIGITOVER'?'Over':'Under';
     setDemoMessage('DEMO QUOTE READY · '+marketName+' · '+directionName+' · Stake $'+stake.toFixed(2)+' · '+duration+' ticks · Purchase price $'+Number(proposal.ask_price).toFixed(2)+'. No trade has been placed yet.');
     document.getElementById('buyDemo').style.display='inline-block';
     document.getElementById('plan').disabled=false;
@@ -268,7 +278,7 @@ document.getElementById('plan').addEventListener('click',async()=>{
     if(!fresh||!fresh.id||!Number.isFinite(Number(fresh.ask_price))){setDemoMessage('Deriv did not return a usable fresh quote. No purchase was sent.');demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;return}
     pendingDemoProposal={id:fresh.id,price:Number(fresh.ask_price)};
     const marketName=document.querySelector('#symbol option:checked').textContent;
-    const directionName=demoQuoteDetails.direction==='CALL'?'Rise':'Fall';
+    const directionName=demoQuoteDetails.direction==='CALL'?'Rise':demoQuoteDetails.direction==='PUT'?'Fall':demoQuoteDetails.direction==='DIGITOVER'?'Over':'Under';
     const freshPrice=Number(fresh.ask_price);
     const confirmed=window.confirm('FRESH DERIV DEMO PRICE | '+marketName+' · '+directionName+' | Stake: $'+demoQuoteDetails.stake.toFixed(2)+' | '+demoQuoteDetails.duration+' ticks | Current purchase price: $'+freshPrice.toFixed(2)+' | Place this demo order now?');
     if(!confirmed){demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;setDemoMessage('Fresh price received. Purchase cancelled; no order was sent.');return}
@@ -300,7 +310,7 @@ document.getElementById('buyDemo').addEventListener('click',()=>{
  demoTradeBusy=true;
  document.getElementById('buyDemo').disabled=true;
  setDemoMessage('Refreshing the price with Deriv before purchase…');
- demoTradeSocket.send(JSON.stringify({proposal:1,amount:demoQuoteDetails.stake,basis:'stake',contract_type:demoQuoteDetails.direction,currency:demoQuoteDetails.currency,duration:demoQuoteDetails.duration,duration_unit:'t',underlying_symbol:demoQuoteDetails.symbol,req_id:73}));
+ demoTradeSocket.send(JSON.stringify({proposal:1,amount:demoQuoteDetails.stake,basis:'stake',contract_type:demoQuoteDetails.direction,...((demoQuoteDetails.direction==='DIGITOVER'||demoQuoteDetails.direction==='DIGITUNDER')?{barrier:String(demoQuoteDetails.barrier)}:{}),currency:demoQuoteDetails.currency,duration:demoQuoteDetails.duration,duration_unit:'t',underlying_symbol:demoQuoteDetails.symbol,req_id:73}));
  setTimeout(()=>{if(demoTradeBusy){demoTradeBusy=false;document.getElementById('buyDemo').disabled=false;setDemoMessage('No fresh quote or purchase confirmation arrived. Check your Deriv demo portfolio before trying again; do not submit another order until you confirm whether one was placed.');}},15000);
 });
 
