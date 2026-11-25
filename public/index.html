@@ -56,7 +56,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:30px 20px}
 <section id="manual" class="content panel">
 <h2>Manual demo trade</h2>
 <div class="notice">DEMO ACCOUNT ONLY · Real-money accounts are not used by this trading panel. Review the quote before deciding whether to place a demo order.</div>
-<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100">Volatility 100 Index</option></select></div><div><label for="direction">Contract direction</label><select id="direction"><option value="CALL">Rise</option><option value="PUT">Fall</option></select></div><div><label for="stake">Stake amount (USD)</label><input id="stake" type="number" min="0.35" max="10" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" max="10" step="1" value="5"></div></div>
+<div class="row"><div><label for="symbol">Market</label><select id="symbol"><option value="R_10">Volatility 10 Index</option><option value="R_25">Volatility 25 Index</option><option value="R_50">Volatility 50 Index</option><option value="R_75">Volatility 75 Index</option><option value="R_100">Volatility 100 Index</option></select></div><div><label for="direction">Deriv contract type</label><select id="direction"><option value="CALL">Rise (CALL)</option><option value="PUT">Fall (PUT)</option></select></div><div><label for="stake">Stake amount (USD)</label><input id="stake" type="number" min="0.35" max="10" step="0.01" value="1"></div><div><label for="duration">Duration (ticks)</label><input id="duration" type="number" min="1" max="10" step="1" value="5"></div></div>
 <button class="action" id="plan">Get demo quote</button>
 <button class="action" id="buyDemo" style="display:none;background:#f4c66a">Confirm and place demo trade</button>
 <div class="notice" id="planresult">No trade has been placed. First request a quote; you must separately confirm any demo purchase.</div>
@@ -207,6 +207,39 @@ let pendingDemoProposal=null;
 let demoQuoteDetails=null;
 let demoTradeBusy=false;
 function setDemoMessage(message){document.getElementById('planresult').textContent=message;}
+function loadDerivContractTypes(){
+ const symbol=document.getElementById('symbol').value;
+ const select=document.getElementById('direction');
+ const previous=select.value;
+ let socket;
+ try{socket=new WebSocket('wss://api.derivws.com/trading/v1/options/ws/public')}catch{return}
+ let finished=false;
+ const timer=setTimeout(()=>{if(!finished){finished=true;try{socket.close()}catch{}}},7000);
+ socket.onopen=()=>socket.send(JSON.stringify({contracts_for:symbol,req_id:611}));
+ socket.onmessage=(event)=>{
+  let data;try{data=JSON.parse(event.data)}catch{return}
+  if(data.req_id!==611)return;
+  finished=true;clearTimeout(timer);
+  if(data.error){setDemoMessage('Could not load Deriv contract types: '+data.error.message+'. Keeping basic choices.');try{socket.close()}catch{};return}
+  const available=data.contracts_for&&Array.isArray(data.contracts_for.available)?data.contracts_for.available:[];
+  const supported=available.filter(item=>item.contract_type);
+  if(!supported.length){setDemoMessage('Deriv returned no contract types for this market. Keeping basic choices.');try{socket.close()}catch{};return}
+  select.replaceChildren();
+  supported.forEach(item=>{
+   const option=document.createElement('option');
+   option.value=item.contract_type;
+   option.textContent=(item.contract_display||item.contract_type)+' ('+item.contract_type+')';
+   select.appendChild(option);
+  });
+  if(supported.some(item=>item.contract_type===previous))select.value=previous;
+  setDemoMessage('Loaded '+supported.length+' contract types from Deriv for '+symbol+'. Some types may require additional settings not yet provided by this form.');
+  try{socket.close()}catch{}
+ };
+ socket.onerror=()=>{clearTimeout(timer);if(!finished)setDemoMessage('Deriv contract list is temporarily unavailable. Basic Rise/Fall choices remain.');};
+}
+document.getElementById('symbol').addEventListener('change',loadDerivContractTypes);
+loadDerivContractTypes();
+
 function resetDemoQuote(){pendingDemoProposal=null;demoQuoteDetails=null;document.getElementById('buyDemo').style.display='none';}
 document.getElementById('plan').addEventListener('click',async()=>{
  const stake=Number(document.getElementById('stake').value);
